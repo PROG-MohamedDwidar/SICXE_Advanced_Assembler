@@ -1,0 +1,4 @@
+HCOPY04218
+H 0 2d 17202d,69202d,4b101036,32026,fffffff0,332007,4b10105d,ffffffec,ffffffe3,f2016,ffffffdd,f200d,4b10105d,3e2003,0,
+H 0 2d 
+H 0 2d 

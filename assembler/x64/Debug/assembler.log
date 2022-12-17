@@ -1,0 +1,6 @@
+﻿  Source.cpp
+D:\GITHUBreps\assembler\assembler\assembler\Source.cpp(151,25): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+D:\GITHUBreps\assembler\assembler\assembler\Source.cpp(154,28): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+D:\GITHUBreps\assembler\assembler\assembler\Source.cpp(175): warning C4715: 'getVal': not all control paths return a value
+D:\GITHUBreps\assembler\assembler\assembler\Source.cpp(419): warning C4715: 'getObjectCode': not all control paths return a value
+  assembler.vcxproj -> D:\GITHUBreps\assembler\assembler\x64\Debug\assembler.exe
