@@ -10,6 +10,7 @@
 #include <queue>
 #include <regex>
 #include <eval.h>
+#include <bitset>
 #include <sstream>
 using namespace std;
 
@@ -26,7 +27,7 @@ map<int, deque<string>>instructions;//code with location counter
 map<string, int>symtab;//symbol table
 deque<string>externdef;
 map <string, pair<int, int>>litr;//literal table
-map<string, short>regs;//register numbers
+map<string, int>regs;//register numbers
 int startp;//start location of the program
 int endp;//end location o...
 string base;//string to be able to store name or value
@@ -45,7 +46,7 @@ deque<string> splitstr(string str);
 int passOne(deque<string>buff, int loctr);
 int getSize(string data);
 int getVal(string data);
-int symReplace(deque<string>line);
+int symReplace(string line);
 bool isDirective(string str);
 int getObjectCode(deque<string>line);
 int f4resolver(deque<string>line);
@@ -106,7 +107,7 @@ int main()
 	
 	int beginning, len,pccounter=0;
 	bool inRec = 0;
-	output << "H" << progName << startp << to_string(endp - startp) << endl;
+	output << "H" <<"," << progName << "," << startp << "," << to_string(endp - startp) << endl;
 	//int endFlag = 0;
 	for (auto i : instructions) {
 		nextpc = 0;
@@ -120,27 +121,34 @@ int main()
 		if (isDirective(i.second[1])) {
 			continue;
 		}
-		else if (i.second[1] == "RESW" || i.second[1] == "resw" || i.second[1] == "RESB" || i.second[1] == "resb") {
-			output << "H"<<" "<<hex<<beginning<<" "<<len <<" "<<objectCode.str() << endl;
+		else if ((i.second[1] == "RESW" || i.second[1] == "resw" || i.second[1] == "RESB" || i.second[1] == "resb") && inRec == 1) {
+			cout << "in-1" << endl;
+			output << "T"<<" "<<hex<<beginning<<" "<<len <<" "<<objectCode.str() << endl;
 			objectCode.str("");
 			inRec = 0;
 
 		}
-		else if (inRec == 0) {
+		else if (inRec == 0 && (i.second[1] != "RESW" && i.second[1] != "resw" && i.second[1] != "RESB" && i.second[1] != "resb")) {
+			cout << "in-2" << endl;
 			inRec = 1;
 			beginning = i.first;
 			len = 0;
 
 		}
 		if (inRec == 1) {
+			//cout << "in-3" << endl;
 			len = i.first - beginning;
-			cout << "inst __" << i.second[0] << "__" << i.second[1] << "__" << i.second[2] << "__" << endl;
+			//cout << "inst __" << i.second[0] << "__" << i.second[1] << "__" << i.second[2] << "__" << endl;
+			//cout << "what the hell?!!! = " <<hex <<getObjectCode(i.second) << endl;
+			//cout << i.second[0] << " " << i.second[1] << " " << i.second[2] << endl;
 			objectCode <<hex<<getObjectCode(i.second)<<",";
 			//cout<<hex << objectCode.str() << endl;
 		}
 		pccounter++;
 		
 	}
+	output << "T" << " " << hex << beginning << " " << len << " " << objectCode.str() << endl;
+	output << "E" << " " << startp << endl;
 	return 0;
 }
 
@@ -161,16 +169,19 @@ int getSize(string data){
 }
 int getVal(string data) {
 	if (data[0] == 'c' || data[0] == 'C') {
-		int res=0;
+		ostringstream res;
+		//int res=0;
 		for (int i = 2; i < data.size() - 1; i++) {
-			res = (res * 100) + (int)data[i];
+			res <<hex<<(int)data[i];
 		}
+		//cout << "data " << data << "__ res __ " << res.str() << endl;
+		return stoi(res.str(),0,16);
 	}
 	else if (data[0] == 'x' || data[0] == 'X') {
 		return stoi(data.substr(2,data.size()-3),0,16);
 	}
 	else {
-		return -1;
+		return symReplace(data);
 	}
 }
 int symReplace(string oper){
@@ -181,7 +192,15 @@ int symReplace(string oper){
 		oper = regex_replace(oper, std::regex(i.first), to_string(i.second));
 		//}
 	}
-	return evaluate(oper);
+	try
+	{
+		return evaluate(oper);
+	}
+	catch (const std::exception&)
+	{
+		return -1;
+	}
+	
 	
 }
 bool isDirective(string str) {
@@ -251,10 +270,12 @@ int passOne(deque<string>line,int loctr) {
 	if (line[1] == "LTORG" || line[1] == "ltorg" || line[1] == "END" || line[1] == "end") {
 		int offset = 0,size=0;
 		deque<string>literalBuffer;
-		for (auto i : litr) {
+		for (auto  i : litr) {
+			//cout << i.first << " ___ " << i.second.first << " ___ ___ " << i.second.second << endl;
 			if (i.second.second == -1) {
-				i.second.first = getVal(i.first.substr(1, i.first.size() - 1));
-				i.second.second = loctr;
+				//cout << "in" << endl;
+				litr[i.first].first = getVal(i.first.substr(1, i.first.size() - 1));
+				litr[i.first].second = loctr;
 				size = getSize(i.first.substr(1, i.first.size() - 1));
 				literalBuffer.clear();
 				literalBuffer.push_back("*");
@@ -289,33 +310,51 @@ int f4resolver(deque<string>line){
 	ob = ops[line[1]].second;
 	ob = ob << 4;
 	ob = ob | extended;
-	ob = ob | xe;
 	if (line[2][0] == '#') {
 		ob = ob | immediate;
 		ob = ob << 20;
+		//cout << symtab[line[2].substr(1)] << ")))))))--------------------------------------------" << endl;
+		
 		ob = ob | symtab[line[2].substr(1)];
-		cout << hex << ob << endl;
+		
+		
+		//cout << hex << ob << endl;
+		return ob;
+	}
+	else if (line[2][0] == '@') {
+		
+		
+		ob = ob | indirect;
+		ob = ob << 20;
+		ob = ob | symtab[line[2].substr(1)];
 		return ob;
 	}
 	else{
+		ob = ob | xe;
 		ob = ob << 20;
 		ob = ob | symtab[line[2]];
-		cout << hex << ob << endl;
+		//cout << hex << ob << endl;
 		return ob;
 	}
 }
 int f3resolver(deque<string>line, int op){
+	//cout << "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii-------" << line[0] << " " << line[1] << " " << line[2] << endl;
 	op = op << 4;
 	if (line[1] == "RSUB" || line[1] == "rsub") {
 		op = op | xe;
 		op = op << 12;
-		cout << hex << op << endl;
+		//cout << hex << op << endl;
 		return op;
 	}
 	if (line[2][0] == '#') {
 		op = op | immediate;
 		line[2] = line[2].substr(1);
-
+		if (symtab.find(line[2]) == symtab.end()) {
+			op = op << 12;
+			op = op + symReplace(line[2]);
+			//cout << hex << op << endl;
+			return op;
+		}
 	}
 	else if (line[2][0] == '@') {
 		op = op | indirect;
@@ -325,50 +364,84 @@ int f3resolver(deque<string>line, int op){
 		op = op | xe;
 		if (line[2][(line[2].size() - 2)] == ',') {
 			op = op | indexed;
-			cout << line[2] << endl;
+			//cout << line[2] << endl;
 			line[2] = line[2].substr(0, (line[2].size() - 2));
 		}
+		
 	}
 	//cout << "target = " << symtab[line[2]] <<" pc = "<<nextpc << endl;
-	int disp = symtab[line[2]] - nextpc;
-	//cout << "disp = " << disp << endl;
-	if (disp <= 2047 || disp >= -2048) {
-		op = op | pcRel;
-		op = op << 12;
-		op = op | disp;
+	 
+
+	int disp = 0;
+	if (line[2][0] == '=') {
+		disp = litr[line[2]].second - nextpc;
+		//cout << hex << "disp1 === " << disp << endl;
 	}
 	else {
+		disp = symtab[line[2]] - nextpc;
+	}
+	//cout << dec << symtab[line[2]] << " --what you desire--" << disp << endl;
+	//cout << "disp = " << disp << endl;
+	if (disp <= 2047 && disp >= -2048) {
+		op = op | pcRel;
+		op = op << 12;
+		//cout << "inside ---- disp " << hex << disp << " __op__ " << op << endl;
+		disp = disp & 4095;
+		//cout << "inside ---- disp " <<hex<< disp<< " __op__ "<<op << endl;
+		op = op | disp;
+		
+		//cout << "inside ---- " <<  op << endl;
+	}
+	else {
+
 		op = op | baseRel;
 		disp= symtab[line[2]] - stoi(base);
+		
 		op = op << 12;
 		op = op | disp;
 	}
-	cout << hex << op << endl;
+	//cout << hex << op << endl;
 	return op;
 	
 }
 int f2resolver(deque<string>line, int op){
 	string regis="";
 	op = op << 4;
+	int charCount = 0,enterFlag=0;
+	cout << line[2] << endl;
 	for (auto i : line[2]) {
 		if (i == ',') {
 			
+			enterFlag = 1;
 			op = op | regs[regis];
 			op = op << 4;
 			regis = "";
+			charCount++;
+			//cout << hex << "--" << op << endl;
 			continue;
 		}
 		regis += i;
+		
+		if (charCount == line[2].size() - 1) {
+			
+			op = op | regs[regis];
+			if(enterFlag==0)op = op << 4;
+			//cout << hex << "---" << op << endl;
+		}
+		
+		charCount++;
 	}
+	
 	cout << hex << op << endl;
 	return op;
 }
 int f1resolver(deque<string>line, int op){
-	cout << hex << op << endl;
+	//cout << hex << op << endl;
 	return op;
 }
 
 int getObjectCode(deque<string>line) {
+	//cout << line[0] << " " << line[1] << " " << line[2] << endl;
 	int ob = 0;
 	if (line[1] == "LDX" || line[1] == "ldx") {
 		if (line[2][0] == '#') {
@@ -380,9 +453,11 @@ int getObjectCode(deque<string>line) {
 	}
 	if (line[0] == "*") {
 		ob = litr[line[1]].first;
+		//cout << "aaaaaaaaaanddddddd iiii " << hex << ob << endl;
 		if (ob == -1) {
 			ob = symReplace(line[1]);
 		}
+		//cout << "aaaaaaaaaanddddddd iiii " << hex << ob << endl;
 		return ob;
 	}
 	else {
@@ -391,6 +466,7 @@ int getObjectCode(deque<string>line) {
 			if (ob == -1) {
 				ob = symReplace(line[1]);
 			}
+			//cout << "obj byte___" <<hex<< ob << endl;
 			return ob;
 		}
 		else if (line[1] == "WORD" || line[1] == "word") {
