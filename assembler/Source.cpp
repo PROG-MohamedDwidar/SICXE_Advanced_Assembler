@@ -96,7 +96,7 @@ int main()
 		buff=splitstr(buffer);
 		//instructionlist.push_back(buff);
 		pc += passOne(buff, pc); //start pass one counting for every instruction
-
+		endp = pc;
 		count++;
 	}
 
@@ -105,9 +105,9 @@ int main()
 
 	ostringstream objectCode;
 	
-	int beginning, len,pccounter=0;
+	int beginning, len,pccounter=0,lastlen;
 	bool inRec = 0;
-	output << "H" <<"," << progName << "," << startp << "," << to_string(endp - startp) << endl;
+	output << "H" <<"," << progName << "," << hex<<startp << "," << endp - startp << endl;
 	//int endFlag = 0;
 	for (auto i : instructions) {
 		nextpc = 0;
@@ -123,7 +123,7 @@ int main()
 		}
 		else if ((i.second[1] == "RESW" || i.second[1] == "resw" || i.second[1] == "RESB" || i.second[1] == "resb") && inRec == 1) {
 			cout << "in-1" << endl;
-			output << "T"<<" "<<hex<<beginning<<" "<<len <<" "<<objectCode.str() << endl;
+			output << "T"<<" "<<hex<<beginning<<" "<< i.first - beginning <<" "<<objectCode.str() << endl;
 			objectCode.str("");
 			inRec = 0;
 
@@ -138,16 +138,18 @@ int main()
 		if (inRec == 1) {
 			//cout << "in-3" << endl;
 			len = i.first - beginning;
+			lastlen = len;
 			//cout << "inst __" << i.second[0] << "__" << i.second[1] << "__" << i.second[2] << "__" << endl;
 			//cout << "what the hell?!!! = " <<hex <<getObjectCode(i.second) << endl;
 			//cout << i.second[0] << " " << i.second[1] << " " << i.second[2] << endl;
 			objectCode <<hex<<getObjectCode(i.second)<<",";
 			//cout<<hex << objectCode.str() << endl;
 		}
+		lastlen = i.first;
 		pccounter++;
 		
 	}
-	output << "T" << " " << hex << beginning << " " << len << " " << objectCode.str() << endl;
+	if(objectCode.str()!="")output << "T" << " " << hex << beginning << " " << endp - beginning<< " " << objectCode.str() << endl;
 	output << "E" << " " << startp << endl;
 	return 0;
 }
@@ -214,7 +216,7 @@ bool isDirective(string str) {
 
 //}
 int passOne(deque<string>line,int loctr) {
-	//cout<< line[0]<<" "<<line[1]<<" "<<line[2]<<" "<< hex << loctr << endl;
+	cout<< line[0]<<" "<<line[1]<<" "<<line[2]<<" "<< hex << loctr << endl;
 	instructions[loctr] = line;
 
 	if (line[0] == base) {
@@ -283,7 +285,8 @@ int passOne(deque<string>line,int loctr) {
 				literalBuffer.push_back("");
 				instructions[loctr] = literalBuffer;
 				loctr += size;
-				endp = loctr;
+				//endp = loctr;
+				//cout << endp<<"<<<<<here lies endp<<<<<<<<<-----"<< endl;
 				offset += size;
 			}	
 		}
@@ -352,6 +355,8 @@ int f3resolver(deque<string>line, int op){
 		if (symtab.find(line[2]) == symtab.end()) {
 			op = op << 12;
 			op = op + symReplace(line[2]);
+			
+			//cout << symReplace(line[2]) <<"-----------------------------------<<<<<" << endl;
 			//cout << hex << op << endl;
 			return op;
 		}
@@ -445,7 +450,7 @@ int getObjectCode(deque<string>line) {
 	int ob = 0;
 	if (line[1] == "LDX" || line[1] == "ldx") {
 		if (line[2][0] == '#') {
-			x = symtab[line[2].substr(1)];
+			x = symReplace(line[2].substr(1));
 		}
 		else {
 			x = symtab[line[2]];
